@@ -3,3 +3,51 @@ Using a Pi Zero 2 W with Ubuntu 22 64bit:
 
 apt install python3-pip
 pip install -r requirements.txt
+
+Orange Pi Zero 3 hardware mode:
+
+export MEOWTON_HARDWARE=orangepi-zero3
+
+# optional pin overrides, defaults match current Zero 3 wiring
+# export MEOWTON_LED_PIN=2
+# export MEOWTON_FOOD_DATA_PIN=9
+# export MEOWTON_FOOD_CLOCK_PIN=10
+# export MEOWTON_CAT_DATA_PIN=7
+# export MEOWTON_CAT_CLOCK_PIN=5
+
+# run smoke tests before full app startup
+python hardware_smoke/blink_led.py
+python hardware_smoke/read_hx711_once.py
+python hardware_smoke/read_hx711_burst.py
+python hardware_smoke/pwm_servo_test.py
+
+Example systemd service (minimal template):
+
+Create /etc/systemd/system/meowton.service with:
+
+[Unit]
+Description=Meowton feeder service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/app/src
+Environment=MEOWTON_HARDWARE=orangepi-zero3
+ExecStart=/usr/local/bin/python -u main.py
+Restart=on-failure
+RestartSec=3
+KillSignal=SIGTERM
+TimeoutStopSec=20
+
+[Install]
+WantedBy=multi-user.target
+
+Apply and verify:
+
+sudo systemctl daemon-reload
+sudo systemctl enable meowton
+sudo systemctl start meowton
+systemctl status meowton --no-pager
+journalctl -u meowton -b --no-pager

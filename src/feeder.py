@@ -7,11 +7,9 @@ from peewee import Model, IntegerField, FloatField
 
 import settings
 from db import db
+from hardware.pwm import create_pwm
 from scale import Scale
 from util import Status
-
-SERVO_PIN = 18
-PWM_FREQ = 50
 
 SERVO_MAX = 8
 SERVO_MIN = 5
@@ -49,26 +47,30 @@ class Feeder(Model):
         # For GUI feedback
         self.status_msg = "Food ready"
         self.status: Status = Status.OK
+        self.__pwm = None
 
-        if not settings.dev_mode:
-            from RPi import GPIO
-            GPIO.setmode(GPIO.BCM)
-            GPIO.setup(SERVO_PIN, GPIO.OUT)
-            self.__pwm = GPIO.PWM(SERVO_PIN, PWM_FREQ)
-            self.__pwm.start(0)
+        if not settings.is_simulated_hardware:
+            self.__pwm = create_pwm(
+                backend_name=settings.hardware_backend,
+                chip=settings.SERVO_PWM_CHIP,
+                channel=settings.SERVO_PWM_CHANNEL,
+                period_ns=settings.SERVO_PWM_PERIOD_NS,
+                base_path=settings.SERVO_PWM_BASE_PATH,
+            )
 
     def init(self, food_scale: Scale):
         self.__food_scale = food_scale
 
     async def run_motor(self, duty, time):
-        if settings.dev_mode:
+        if settings.is_simulated_hardware:
             # simulate
             await asyncio.sleep(time / 1000)
             return
 
-        self.__pwm.ChangeDutyCycle(duty)
+        self.__pwm.set_duty_percent(duty)
+        self.__pwm.enable()
         await asyncio.sleep(time / 1000)
-        self.__pwm.ChangeDutyCycle(0)
+        self.__pwm.set_duty_percent(0)
 
     async def forward(self):
         await self.run_motor(self.feed_duty, self.feed_time)
@@ -163,6 +165,11 @@ class Feeder(Model):
             return
 
         self.__event_request.set()
+
+    def stop(self):
+        if self.__pwm is not None:
+            self.__pwm.close()
+            self.__pwm = None
 
 
 db.create_tables([Feeder])

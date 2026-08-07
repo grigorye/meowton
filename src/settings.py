@@ -1,8 +1,26 @@
 import sys
+import os
 
 dev_mode = "dev" in sys.argv
 if dev_mode:
     print("Using dev mode")
+
+hardware_backend = os.getenv("MEOWTON_HARDWARE", "simulated" if dev_mode else "orangepi-zero3")
+is_simulated_hardware = hardware_backend == "simulated"
+
+LED_PIN = int(os.getenv("MEOWTON_LED_PIN", "2"))
+
+FOOD_DATA_PIN = int(os.getenv("MEOWTON_FOOD_DATA_PIN", "9"))
+FOOD_CLOCK_PIN = int(os.getenv("MEOWTON_FOOD_CLOCK_PIN", "10"))
+CAT_DATA_PIN = int(os.getenv("MEOWTON_CAT_DATA_PIN", "7"))
+CAT_CLOCK_PIN = int(os.getenv("MEOWTON_CAT_CLOCK_PIN", "5"))
+
+SERVO_PWM_CHIP = int(os.getenv("MEOWTON_SERVO_PWM_CHIP", "0"))
+SERVO_PWM_CHANNEL = int(os.getenv("MEOWTON_SERVO_PWM_CHANNEL", "1"))
+SERVO_PWM_BASE_PATH = os.getenv("MEOWTON_SERVO_PWM_BASE_PATH", "/sys/class/pwm")
+SERVO_PWM_PERIOD_NS = int(os.getenv("MEOWTON_SERVO_PWM_PERIOD_NS", "20000000"))
+
+HX711_READ_TIMEOUT_S = float(os.getenv("MEOWTON_HX711_READ_TIMEOUT_S", "0.2"))
 
 
 version="2.0"

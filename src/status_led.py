@@ -1,34 +1,35 @@
 import asyncio
 
-
 import settings
-
-
 from cat_detector import CatDetector
 from feeder import Feeder
+from hardware.gpio import DigitalOutput
 from util import Status
-from RPi import GPIO
 
-LED_PIN=4
 
-class StatusLed():
+class StatusLed:
     def __init__(self):
+        self._led = None
+        if not settings.is_simulated_hardware:
+            self._led = DigitalOutput(settings.LED_PIN)
 
-        GPIO.setmode(GPIO.BCM)
-        GPIO.setup(LED_PIN, GPIO.OUT)
-
-
-    async def task(self, feeder:Feeder, cat_detector:CatDetector):
-        if settings.dev_mode:
+    async def task(self, feeder: Feeder, cat_detector: CatDetector):
+        if settings.is_simulated_hardware:
             return
+
         while True:
-            if feeder.status==Status.OK and cat_detector.status==Status.OK:
-                GPIO.output(LED_PIN, GPIO.HIGH)
+            if feeder.status == Status.OK and cat_detector.status == Status.OK:
+                self._led.write(True)
                 await asyncio.sleep(1)
-                GPIO.output(LED_PIN, GPIO.LOW)
+                self._led.write(False)
                 await asyncio.sleep(0.1)
             else:
-                GPIO.output(LED_PIN, GPIO.HIGH)
+                self._led.write(True)
                 await asyncio.sleep(0.1)
-                GPIO.output(LED_PIN, GPIO.LOW)
+                self._led.write(False)
                 await asyncio.sleep(0.1)
+
+    def close(self):
+        if self._led is not None:
+            self._led.close()
+            self._led = None

@@ -2,9 +2,12 @@ import asyncio
 import random
 import threading
 import time
-from typing import TypeAlias, Callable
+from typing import Callable
 
-MeasurementCallback: TypeAlias = Callable[[int], None]
+import settings
+from hardware.hx711 import HX711, HX711TimeoutError
+
+MeasurementCallback = Callable[[int], None]
 
 
 class SensorReader:
@@ -24,6 +27,10 @@ class SensorReader:
 
         self.__thread: threading.Thread | None = None
         self.__stop_event = threading.Event()
+        self.__name = name
+        self.__hx711: HX711 | None = None
+        self.__read_timeout_s = settings.HX711_READ_TIMEOUT_S
+        self.__last_timeout_log = 0.0
 
         # self.__loop = asyncio.get_event_loop()
         self.__measurement_callback = measurement_callback
@@ -38,24 +45,33 @@ class SensorReader:
             time.sleep(0.1)
 
     def reader_thread(self):
-        from RPi import GPIO
-        from hx711 import HX711
-
-        GPIO.setwarnings(False)
-
-        hx711 = HX711(
+        self.__hx711 = HX711(
             dout_pin=self.__data_pin,
             pd_sck_pin=self.__clk_pin,
-            channel='A',
-            gain=128
+            gain=128,
         )
 
-        hx711.reset()  # Before we start, reset the HX711 (not obligate)
+        try:
+            while not self.__stop_event.is_set():
+                try:
+                    raw_value = self.__hx711.read_raw(timeout_seconds=self.__read_timeout_s)
+                except HX711TimeoutError:
+                    # Avoid flooding logs if a sensor is disconnected.
+                    now = time.monotonic()
+                    if now - self.__last_timeout_log >= 5:
+                        print(f"SensorReader[{self.__name}]: HX711 timeout waiting for data")
+                        self.__last_timeout_log = now
+                    continue
+                except Exception as exc:
+                    print(f"SensorReader[{self.__name}]: HX711 read error: {exc}")
+                    time.sleep(0.1)
+                    continue
 
-        while not self.__stop_event.is_set():
-            raw_value = hx711._read()
-            if raw_value is not False:
                 self.__loop.call_soon_threadsafe(self.__measurement_callback, raw_value)
+        finally:
+            if self.__hx711 is not None:
+                self.__hx711.close()
+                self.__hx711 = None
 
     def start(self):
         """start reader thread, or simtrhead if data/clk are not specified"""
@@ -77,5 +93,6 @@ class SensorReader:
 
     def stop(self):
         self.__stop_event.set()
-        self.__thread.join()
+        if self.__thread is not None:
+            self.__thread.join()
         self.__thread = None

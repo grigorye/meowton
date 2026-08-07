@@ -7,6 +7,7 @@ from cat_detector import CatDetector
 from feeder import Feeder
 from food_counter import FoodCounter
 from food_scheduler import FoodScheduler
+from hardware import gpio
 from scale import Scale
 from sensor_reader import SensorReader
 from status_led import StatusLed
@@ -26,12 +27,15 @@ class Meowton:
     cat_reader: SensorReader
     cat_scale: Scale
     cat_detector: CatDetector
+    _tasks: list[asyncio.Task]
 
     def __init__(self, sim: bool):
+        self._tasks = []
+        self._stopped = False
 
         self.init_food(sim)
         self.init_cat(sim)
-        self.status_led=StatusLed()
+        self.status_led = StatusLed()
 
 
 
@@ -44,7 +48,7 @@ class Meowton:
             self.food_scale.sensor_filter.filter_diff=10000
             self.food_scale.sensor_filter.save()
 
-        self.food_reader = SensorReader(name, 23, 24, sim, self.food_scale.measurement)
+        self.food_reader = SensorReader(name, settings.FOOD_DATA_PIN, settings.FOOD_CLOCK_PIN, sim, self.food_scale.measurement)
         self.food_counter = FoodCounter()
 
         self.food_scheduler = FoodScheduler.get_or_none(id=1)
@@ -64,13 +68,20 @@ class Meowton:
             self.cat_scale.sensor_filter.filter_diff=1000
             self.cat_scale.sensor_filter.save()
 
-        self.cat_reader = SensorReader(name, 27, 17, sim, self.cat_scale.measurement)
+        self.cat_reader = SensorReader(name, settings.CAT_DATA_PIN, settings.CAT_CLOCK_PIN, sim, self.cat_scale.measurement)
         self.cat_detector = CatDetector()
 
+    def _task_done(self, task: asyncio.Task):
+        if task.cancelled():
+            return
+        exc = task.exception()
+        if exc is None:
+            return
+        print(f"Meowton: task failed: {exc}")
+        self.stop()
+
     async def start(self):
-
-
-        tasks=[]
+        tasks = []
 
         self.food_reader.start()
         self.cat_reader.start()
@@ -82,11 +93,27 @@ class Meowton:
 
         tasks.append(asyncio.create_task(self.status_led.task(self.feeder, self.cat_detector)))
 
+        for task in tasks:
+            task.add_done_callback(self._task_done)
+
+        self._tasks = tasks
+
         return tasks
 
     def stop(self):
+        if self._stopped:
+            return
+        self._stopped = True
+
+        for task in self._tasks:
+            task.cancel()
+        self._tasks = []
+
         self.food_reader.stop()
         self.cat_reader.stop()
+        self.status_led.close()
+        self.feeder.stop()
+        gpio.cleanup()
 
 
-meowton = Meowton(settings.dev_mode)
+meowton = Meowton(settings.is_simulated_hardware)
