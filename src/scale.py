@@ -1,4 +1,5 @@
 from asyncio import Event
+import math
 
 from peewee import Model, CharField, FloatField, IntegerField
 
@@ -51,6 +52,8 @@ class Scale(Model):
         # actual measurement values for averaging and event generation:
         self.__measure_min = None
         self.__measure_max = None
+        self.__measure_raw_min = None
+        self.__measure_raw_max = None
         self.__measure_count = 0
         self.__measure_raw_sum = 0
         self.__measure_raw_sum_count = 0
@@ -89,16 +92,20 @@ class Scale(Model):
     def tarre(self):
         """tarre away current raw value"""
         self.calibration.tarre(self.last_realtime_raw_value)
+        self.stable_reset(self.last_realtime_weight)
 
     def calibrate(self, weight: int):
         """calibrate with specified weight. (dont forget to tarre first)"""
         self.calibration.calibrate(self.last_realtime_raw_value, weight)
+        self.stable_reset(self.last_realtime_weight)
 
     def stable_reset(self, weight=None):
         """resets stable state of the scale. (usefull after changing parameters of loading state)"""
         # print("RESET")
         self.__measure_min = weight
         self.__measure_max = weight
+        self.__measure_raw_min = self.last_realtime_raw_value
+        self.__measure_raw_max = self.last_realtime_raw_value
         self.__measure_raw_sum = 0
         self.__measure_raw_sum_count = 0
         if self.stable:
@@ -107,6 +114,20 @@ class Scale(Model):
             self.__event_unstable()
 
         self.measure_countdown = self.stable_measurements
+
+    def _raw_stability_threshold(self, max_spread_g: float) -> float:
+        """Convert gram spread threshold to raw units with bounded fallback behavior."""
+        factor = abs(float(self.calibration.factor))
+        if math.isfinite(factor) and factor > 1e-9:
+            raw_limit = max_spread_g / factor
+        else:
+            raw_limit = float("inf")
+
+        min_raw_limit = max(1.0, float(self.sensor_filter.filter_diff) * 0.02)
+        max_raw_limit = max(min_raw_limit, float(self.sensor_filter.filter_diff))
+        if not math.isfinite(raw_limit):
+            return min_raw_limit
+        return min(max(raw_limit, min_raw_limit), max_raw_limit)
 
     def measurement(self, raw_value: int):
         """update measurent data and generate stable events when detected. """
@@ -128,10 +149,23 @@ class Scale(Model):
         if self.__measure_max is None or weight > self.__measure_max:
             self.__measure_max = weight
 
-        # print(f"range {self.__measure_min}..{self.__measure_max}")
-        self.measure_spread = (self.__measure_max - self.__measure_min)
+        if self.__measure_raw_min is None or raw_value < self.__measure_raw_min:
+            self.__measure_raw_min = raw_value
 
-        max_spread = max((self.stable_range_perc / 100 * weight), self.stable_range)
+        if self.__measure_raw_max is None or raw_value > self.__measure_raw_max:
+            self.__measure_raw_max = raw_value
+
+        # print(f"range {self.__measure_min}..{self.__measure_max}")
+        weight_spread = (self.__measure_max - self.__measure_min)
+        raw_spread = (self.__measure_raw_max - self.__measure_raw_min)
+        factor = abs(float(self.calibration.factor))
+        if math.isfinite(factor) and factor > 1e-9:
+            self.measure_spread = raw_spread * factor
+        else:
+            self.measure_spread = weight_spread
+
+        max_spread = max((self.stable_range_perc / 100 * abs(weight)), self.stable_range)
+        raw_max_spread = self._raw_stability_threshold(max_spread)
 
         # NOTE: only used in gui as feedback for user
         if max_spread > 0:
@@ -140,7 +174,7 @@ class Scale(Model):
             self.measure_spread_perc = 0
 
         # reset if weight goes out of stable_range
-        if self.measure_spread > max_spread:
+        if raw_spread > raw_max_spread:
             self.stable_reset(weight)
             return
 
