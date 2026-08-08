@@ -22,7 +22,24 @@ if [ ${#extra_mounts[@]} -eq 0 ]; then
 	echo "         wiringOP may fail board detection inside the container."
 fi
 
-podman create -e MATPLOTLIB=false --stop-timeout=0 --network host --privileged --name meowton -v /etc/localtime:/etc/localtime:ro -v "$PWD":/app "${extra_mounts[@]}" meowton
+forward_env_vars=(
+	MEOWTON_HARDWARE
+	MEOWTON_DISABLE_CAT_READER
+	MEOWTON_DISABLE_AUTO_FEED
+	MEOWTON_HX711_READ_TIMEOUT_S
+	MEOWTON_HX711_READ_INTERVAL_S
+	MEOWTON_HX711_TIMEOUT_RECOVERY_S
+)
+
+extra_env=()
+for env_name in "${forward_env_vars[@]}"; do
+	if [ -n "${!env_name+x}" ]; then
+		extra_env+=( -e "$env_name=${!env_name}" )
+		echo "Forwarding env: $env_name=${!env_name}"
+	fi
+done
+
+podman create -e MATPLOTLIB=false --stop-timeout=0 --network host --privileged --name meowton -v /etc/localtime:/etc/localtime:ro -v "$PWD":/app "${extra_mounts[@]}" "${extra_env[@]}" meowton
 
 # add to systemctl
 podman generate systemd -n meowton > /etc/systemd/system/meowton.service
