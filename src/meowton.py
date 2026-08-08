@@ -54,7 +54,8 @@ class Meowton:
             f"hx711_interval_s={settings.HX711_READ_INTERVAL_S}, "
             f"hx711_recovery_s={settings.HX711_TIMEOUT_RECOVERY_S}, "
             f"disable_cat_reader={settings.DISABLE_CAT_READER}, "
-            f"disable_auto_feed={settings.DISABLE_AUTO_FEED}"
+            f"disable_auto_feed={settings.DISABLE_AUTO_FEED}, "
+            f"disable_pwm={settings.DISABLE_PWM}"
         )
 
 

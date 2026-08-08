@@ -49,7 +49,7 @@ class Feeder(Model):
         self.status: Status = Status.OK
         self.__pwm = None
 
-        if not settings.is_simulated_hardware:
+        if not settings.is_simulated_hardware and not settings.DISABLE_PWM:
             self.__pwm = create_pwm(
                 backend_name=settings.hardware_backend,
                 chip=settings.SERVO_PWM_CHIP,
@@ -62,7 +62,7 @@ class Feeder(Model):
         self.__food_scale = food_scale
 
     async def run_motor(self, duty, time):
-        if settings.is_simulated_hardware:
+        if settings.is_simulated_hardware or settings.DISABLE_PWM:
             # simulate
             await asyncio.sleep(time / 1000)
             return
