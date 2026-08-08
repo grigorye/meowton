@@ -6,7 +6,7 @@ from peewee import Model, CharField, FloatField, IntegerField
 
 from db import db
 
-MIN_CALIBRATION_RAW_DELTA = 100
+MIN_CALIBRATION_RAW_DELTA = 10
 
 
 class ScaleSensorCalibration(Model):
@@ -62,6 +62,10 @@ class ScaleSensorCalibration(Model):
             return False
 
         self.factor = factor
+        print(
+            f"{self.__class__.__name__}: calibration applied "
+            f"(raw={raw_value:.2f}, offset={self.offset:.2f}, delta={tarred_value:.2f}, weight={weight}, factor={self.factor:.8f})."
+        )
         return True
 
     def __calibrated_value(self, tarred_value) -> float:

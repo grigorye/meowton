@@ -46,6 +46,7 @@ class Scale(Model):
 
         # may also be used as API to get lastet weights/status:
         self.last_stable_weight = 0
+        self.last_stable_raw_value = 0
         self.last_realtime_weight = 0
         self.last_realtime_raw_value = 0
 
@@ -91,13 +92,15 @@ class Scale(Model):
 
     def tarre(self):
         """tarre away current raw value"""
-        self.calibration.tarre(self.last_realtime_raw_value)
+        raw_value = self.last_stable_raw_value if self.stable else self.last_realtime_raw_value
+        self.calibration.tarre(raw_value)
         self.calibration.save()
         self.stable_reset(self.last_realtime_weight)
 
     def calibrate(self, weight: int) -> bool:
         """calibrate with specified weight. (dont forget to tarre first)"""
-        ok = self.calibration.calibrate(self.last_realtime_raw_value, weight)
+        raw_value = self.last_stable_raw_value if self.stable else self.last_realtime_raw_value
+        ok = self.calibration.calibrate(raw_value, weight)
         if ok:
             self.calibration.save()
         self.stable_reset(self.last_realtime_weight)
@@ -196,7 +199,9 @@ class Scale(Model):
         if self.measure_countdown > 0:
             self.measure_countdown = self.measure_countdown - 1
             if self.measure_countdown == 0:
-                average_weight = self.calibration.weight(self.__measure_raw_sum / self.__measure_raw_sum_count)
+                average_raw = self.__measure_raw_sum / self.__measure_raw_sum_count
+                self.last_stable_raw_value = average_raw
+                average_weight = self.calibration.weight(average_raw)
                 self.last_stable_weight = average_weight
                 self.stable = True
                 self.__event_stable()

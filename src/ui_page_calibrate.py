@@ -37,8 +37,8 @@ def calibrate_wizard(scale: Scale, cal_weight: int):
                         stepper.next()
                     else:
                         ui.notify(
-                            f"Calibration failed for {scale.name}: no measurable delta detected. "
-                            "Increase calibration weight or improve stability first.",
+                            f"Calibration failed for {scale.name}: no measurable sensor delta. "
+                            "Keep the weight on the scale until it is stable, then press Next.",
                             color='negative',
                         )
 
