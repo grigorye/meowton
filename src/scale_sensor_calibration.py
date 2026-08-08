@@ -43,12 +43,12 @@ class ScaleSensorCalibration(Model):
     def __tarred_value(self, raw_value):
         return raw_value - self.offset
 
-    def calibrate(self, raw_value, weight) -> bool:
+    def calibrate(self, raw_value, weight, min_raw_delta: float = MIN_CALIBRATION_RAW_DELTA) -> bool:
         tarred_value = self.__tarred_value(raw_value)
-        if abs(tarred_value) < MIN_CALIBRATION_RAW_DELTA:
+        if abs(tarred_value) < min_raw_delta:
             print(
                 f"{self.__class__.__name__}: calibration ignored; no sensor delta detected "
-                f"(delta={tarred_value:.2f}, min={MIN_CALIBRATION_RAW_DELTA})."
+                f"(delta={tarred_value:.2f}, min={min_raw_delta:.2f})."
             )
             return False
 

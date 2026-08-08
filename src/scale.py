@@ -1,6 +1,7 @@
 from asyncio import Event
 import math
 
+import settings
 from peewee import Model, CharField, FloatField, IntegerField
 
 from db import db
@@ -90,17 +91,33 @@ class Scale(Model):
         self.event_unstable.set()
         self.event_unstable.clear()
 
-    def tarre(self):
+    def tarre(self) -> bool:
         """tarre away current raw value"""
+        if not self.stable:
+            print(f"Scale [{self.name}]: tarre ignored, scale is not stable yet")
+            return False
         raw_value = self.last_stable_raw_value if self.stable else self.last_realtime_raw_value
         self.calibration.tarre(raw_value)
         self.calibration.save()
         self.stable_reset(self.last_realtime_weight)
+        return True
 
     def calibrate(self, weight: int) -> bool:
         """calibrate with specified weight. (dont forget to tarre first)"""
+        if not self.stable:
+            print(f"Scale [{self.name}]: calibration ignored, scale is not stable yet")
+            return False
+
         raw_value = self.last_stable_raw_value if self.stable else self.last_realtime_raw_value
-        ok = self.calibration.calibrate(raw_value, weight)
+        raw_spread = 0.0
+        if self.__measure_raw_min is not None and self.__measure_raw_max is not None:
+            raw_spread = abs(self.__measure_raw_max - self.__measure_raw_min)
+        min_raw_delta = max(
+            float(settings.CALIBRATION_MIN_RAW_DELTA),
+            raw_spread * float(settings.CALIBRATION_NOISE_MULTIPLIER),
+        )
+
+        ok = self.calibration.calibrate(raw_value, weight, min_raw_delta=min_raw_delta)
         if ok:
             self.calibration.save()
         self.stable_reset(self.last_realtime_weight)

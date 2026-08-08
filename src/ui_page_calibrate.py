@@ -17,10 +17,14 @@ def calibrate_wizard(scale: Scale, cal_weight: int):
                 ui.label(f'Remove all objects from {scale.name} scale. Press next to tarre.')
 
                 def tarre():
-                    scale.tarre()
-                    scale.calibration.save()
-                    stepper.next()
-                    ui.notify(f"{scale.name} tarred")
+                    if scale.tarre():
+                        stepper.next()
+                        ui.notify(f"{scale.name} tarred")
+                    else:
+                        ui.notify(
+                            f"{scale.name} is not stable yet. Wait for stable before tarring.",
+                            color='negative',
+                        )
 
                 with ui.stepper_navigation():
                     ui.button('Next', on_click=tarre)
@@ -108,8 +112,10 @@ def calibrate_settings_dialog(scale: Scale):
 
 def cards(scale: Scale, cal_weight: int):
     def tarre():
-        scale.tarre()
-        ui.notify("tarred")
+        if scale.tarre():
+            ui.notify("tarred")
+        else:
+            ui.notify("Scale is not stable yet. Wait for stable before tarring.", color='negative')
 
     # SENSOR INPUT
     with ui.card():
