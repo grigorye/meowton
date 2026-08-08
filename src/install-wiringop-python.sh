@@ -85,7 +85,7 @@ def _print_diagnostics(reason: str) -> None:
                 print(f"    L{idx}: {raw}")
 
 sig3 = re.search(
-        r"SWIG_Python_AppendOutput\s*\(\s*PyObject\s*\*\s*result\s*,\s*PyObject\s*\*\s*obj\s*,\s*int\s+new_flags\s*\)",
+        r"SWIG_Python_AppendOutput\s*\(\s*PyObject\s*\*\s*result\s*,\s*PyObject\s*\*\s*obj\s*,\s*int\s+[A-Za-z_][A-Za-z0-9_]*\s*\)",
         s,
 ) is not None
 sig2 = re.search(
