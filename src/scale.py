@@ -92,12 +92,16 @@ class Scale(Model):
     def tarre(self):
         """tarre away current raw value"""
         self.calibration.tarre(self.last_realtime_raw_value)
+        self.calibration.save()
         self.stable_reset(self.last_realtime_weight)
 
-    def calibrate(self, weight: int):
+    def calibrate(self, weight: int) -> bool:
         """calibrate with specified weight. (dont forget to tarre first)"""
-        self.calibration.calibrate(self.last_realtime_raw_value, weight)
+        ok = self.calibration.calibrate(self.last_realtime_raw_value, weight)
+        if ok:
+            self.calibration.save()
         self.stable_reset(self.last_realtime_weight)
+        return ok
 
     def stable_reset(self, weight=None):
         """resets stable state of the scale. (usefull after changing parameters of loading state)"""
@@ -118,15 +122,16 @@ class Scale(Model):
     def _raw_stability_threshold(self, max_spread_g: float) -> float:
         """Convert gram spread threshold to raw units with bounded fallback behavior."""
         factor = abs(float(self.calibration.factor))
+        fallback_raw_limit = max(10.0, float(self.sensor_filter.filter_diff))
         if math.isfinite(factor) and factor > 1e-9:
             raw_limit = max_spread_g / factor
         else:
-            raw_limit = float("inf")
+            return fallback_raw_limit
 
-        min_raw_limit = max(1.0, float(self.sensor_filter.filter_diff) * 0.02)
-        max_raw_limit = max(min_raw_limit, float(self.sensor_filter.filter_diff))
+        min_raw_limit = max(10.0, float(self.sensor_filter.filter_diff) * 0.5)
+        max_raw_limit = max(min_raw_limit, float(self.sensor_filter.filter_diff) * 4.0)
         if not math.isfinite(raw_limit):
-            return min_raw_limit
+            return fallback_raw_limit
         return min(max(raw_limit, min_raw_limit), max_raw_limit)
 
     def measurement(self, raw_value: int):

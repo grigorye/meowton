@@ -31,10 +31,16 @@ def calibrate_wizard(scale: Scale, cal_weight: int):
                 cal_weight = ui.number(label='Calibration weight (g)', value=cal_weight, precision=0, min=0)
 
                 def calibrate():
-                    scale.calibrate(int(cal_weight.value))
-                    scale.calibration.save()
-                    ui.notify(f"{scale.name} calibrated with {cal_weight.value}g")
-                    stepper.next()
+                    ok = scale.calibrate(int(cal_weight.value))
+                    if ok:
+                        ui.notify(f"{scale.name} calibrated with {cal_weight.value}g")
+                        stepper.next()
+                    else:
+                        ui.notify(
+                            f"Calibration failed for {scale.name}: no measurable delta detected. "
+                            "Increase calibration weight or improve stability first.",
+                            color='negative',
+                        )
 
                 with ui.stepper_navigation():
                     ui.button('Next', on_click=calibrate)
@@ -103,7 +109,6 @@ def calibrate_settings_dialog(scale: Scale):
 def cards(scale: Scale, cal_weight: int):
     def tarre():
         scale.tarre()
-        scale.calibration.save()
         ui.notify("tarred")
 
     # SENSOR INPUT
