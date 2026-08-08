@@ -8,3 +8,7 @@ Run these scripts on the target board after enabling required overlays and wirin
 4. `python hardware_smoke/pwm_servo_test.py` (servo disconnected for waveform checks)
 
 All scripts require `MEOWTON_HARDWARE=orangepi-zero3`.
+
+For faster HX711 burst debugging:
+- `MEOWTON_BURST_SAMPLES=200` to reduce run time
+- `MEOWTON_BURST_PROGRESS_EVERY=20` for periodic progress output
