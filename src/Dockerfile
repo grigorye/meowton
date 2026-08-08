@@ -16,6 +16,8 @@ RUN pip install -r /app/requirements.txt
 RUN git clone --depth 1 --branch next --recurse-submodules https://github.com/orangepi-xunlong/wiringOP-Python /tmp/wiringOP-Python \
 	&& cd /tmp/wiringOP-Python \
 	&& python3 generate-bindings.py > bindings.i \
-	&& pip install . \
+	&& sed -i '/getGpioNum/d;/piGpioLayoutOops/d' bindings.i \
+	&& sed -i 's/SWIG_Python_AppendOutput($result, PyString_FromStringAndSize((char *) $1, result));/SWIG_Python_AppendOutput($result, PyString_FromStringAndSize((char *) $1, result), 0);/' wiringpi.i \
+	&& python3 setup.py install \
 	&& rm -rf /tmp/wiringOP-Python
 
