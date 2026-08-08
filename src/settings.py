@@ -1,6 +1,13 @@
 import sys
 import os
 
+
+def _env_bool(name: str, default: bool = False) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
 dev_mode = "dev" in sys.argv
 if dev_mode:
     print("Using dev mode")
@@ -23,6 +30,9 @@ SERVO_PWM_PERIOD_NS = int(os.getenv("MEOWTON_SERVO_PWM_PERIOD_NS", "20000000"))
 HX711_READ_TIMEOUT_S = float(os.getenv("MEOWTON_HX711_READ_TIMEOUT_S", "0.2"))
 HX711_READ_INTERVAL_S = float(os.getenv("MEOWTON_HX711_READ_INTERVAL_S", "0.01"))
 HX711_TIMEOUT_RECOVERY_S = float(os.getenv("MEOWTON_HX711_TIMEOUT_RECOVERY_S", "0.005"))
+
+DISABLE_CAT_READER = _env_bool("MEOWTON_DISABLE_CAT_READER", False)
+DISABLE_AUTO_FEED = _env_bool("MEOWTON_DISABLE_AUTO_FEED", False)
 
 
 version="2.0"

@@ -3,6 +3,7 @@ import enum
 import re
 from datetime import datetime
 
+import settings
 from peewee import Model, CharField, IntegerField, TimestampField
 
 from cat_detector import CatDetector
@@ -62,8 +63,14 @@ class FoodScheduler(Model):
 
         # in case we missed an update during offline time
         self.update_quotas()
+        if settings.DISABLE_AUTO_FEED:
+            print("FoodScheduler: automatic feeding disabled via MEOWTON_DISABLE_AUTO_FEED")
 
         while True:
+
+            if settings.DISABLE_AUTO_FEED:
+                await asyncio.sleep(1)
+                continue
 
             if self.check_schedule():
                 self.update_quotas()

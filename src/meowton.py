@@ -52,7 +52,9 @@ class Meowton:
             f"servo_period_ns={settings.SERVO_PWM_PERIOD_NS}, "
             f"hx711_timeout_s={settings.HX711_READ_TIMEOUT_S}, "
             f"hx711_interval_s={settings.HX711_READ_INTERVAL_S}, "
-            f"hx711_recovery_s={settings.HX711_TIMEOUT_RECOVERY_S}"
+            f"hx711_recovery_s={settings.HX711_TIMEOUT_RECOVERY_S}, "
+            f"disable_cat_reader={settings.DISABLE_CAT_READER}, "
+            f"disable_auto_feed={settings.DISABLE_AUTO_FEED}"
         )
 
 
@@ -102,9 +104,13 @@ class Meowton:
         tasks = []
 
         self.food_reader.start()
-        self.cat_reader.start()
+        if settings.DISABLE_CAT_READER:
+            print("Meowton: cat reader disabled via MEOWTON_DISABLE_CAT_READER")
+        else:
+            self.cat_reader.start()
 
-        tasks.append(asyncio.create_task(self.cat_detector.task(self.cat_scale)))
+        if not settings.DISABLE_CAT_READER:
+            tasks.append(asyncio.create_task(self.cat_detector.task(self.cat_scale)))
         tasks.append(asyncio.create_task(self.feeder.task()))
         tasks.append(asyncio.create_task(self.food_counter.task(self.food_scale, self.feeder, self.cat_detector)))
         tasks.append(asyncio.create_task(self.food_scheduler.task(self.feeder, self.cat_detector)))
