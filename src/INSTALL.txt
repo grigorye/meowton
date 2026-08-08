@@ -4,6 +4,14 @@ Using a Pi Zero 2 W with Ubuntu 22 64bit:
 apt install python3-pip
 pip install -r requirements.txt
 
+Install wiringOP-Python into your active Python environment:
+
+chmod +x install-wiringop-python.sh
+./install-wiringop-python.sh
+
+# optional: keep temporary build directory for troubleshooting
+# KEEP_TMP=1 ./install-wiringop-python.sh
+
 Orange Pi Zero 3 hardware mode:
 
 export MEOWTON_HARDWARE=orangepi-zero3
