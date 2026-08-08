@@ -48,7 +48,49 @@ cd "$WORK_DIR"
 sed -i '/getGpioNum/d;/piGpioLayoutOops/d' bindings.i
 swig -python -threads -o wiringpi_wrap.c wiringpi.i
 
-"$PYTHON_BIN" -c 'from pathlib import Path; import re,sys; p=Path("wiringpi_wrap.c"); s=p.read_text(); s2,n=re.subn(r"SWIG_Python_AppendOutput\s*\(\s*resultobj\s*,\s*PyString_FromStringAndSize\s*\(\s*\(char \*\)\s*arg2\s*,\s*result\s*\)\s*\)", "SWIG_Python_AppendOutput(resultobj, PyString_FromStringAndSize((char *) arg2, result), 0)", s); print(f"Patched SWIG_Python_AppendOutput call(s): {n}"); n or sys.exit("Failed to patch SWIG_Python_AppendOutput call in wiringpi_wrap.c"); p.write_text(s2)'
+"$PYTHON_BIN" - <<'PY'
+from pathlib import Path
+import re
+import sys
+
+p = Path("wiringpi_wrap.c")
+s = p.read_text()
+
+sig3 = re.search(
+        r"SWIG_Python_AppendOutput\s*\(\s*PyObject\s*\*\s*result\s*,\s*PyObject\s*\*\s*obj\s*,\s*int\s+new_flags\s*\)",
+        s,
+) is not None
+sig2 = re.search(
+        r"SWIG_Python_AppendOutput\s*\(\s*PyObject\s*\*\s*result\s*,\s*PyObject\s*\*\s*obj\s*\)",
+        s,
+) is not None
+
+pat2 = r"SWIG_Python_AppendOutput\s*\(\s*resultobj\s*,\s*PyString_FromStringAndSize\s*\(\s*\(char \*\)\s*arg2\s*,\s*result\s*\)\s*\)"
+pat3 = r"SWIG_Python_AppendOutput\s*\(\s*resultobj\s*,\s*PyString_FromStringAndSize\s*\(\s*\(char \*\)\s*arg2\s*,\s*result\s*\)\s*,\s*0\s*\)"
+
+n = 0
+s2 = s
+if sig3:
+        s2, n = re.subn(
+                pat2,
+                "SWIG_Python_AppendOutput(resultobj, PyString_FromStringAndSize((char *) arg2, result), 0)",
+                s2,
+        )
+elif sig2:
+        s2, n = re.subn(
+                pat3,
+                "SWIG_Python_AppendOutput(resultobj, PyString_FromStringAndSize((char *) arg2, result))",
+                s2,
+        )
+else:
+        sys.exit("Failed to detect SWIG_Python_AppendOutput signature in wiringpi_wrap.c")
+
+print(f"Patched SWIG_Python_AppendOutput call(s): {n}")
+if n == 0:
+        sys.exit("Failed to patch SWIG_Python_AppendOutput call in wiringpi_wrap.c")
+
+p.write_text(s2)
+PY
 
 sed -i "s/sources += \['wiringpi.i'\]/sources += ['wiringpi_wrap.c']/" setup.py
 
