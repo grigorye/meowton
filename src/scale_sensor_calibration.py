@@ -1,9 +1,12 @@
 # simple AX + B formula :)
 import time
+import math
 
 from peewee import Model, CharField, FloatField, IntegerField
 
 from db import db
+
+MIN_CALIBRATION_RAW_DELTA = 100
 
 
 class ScaleSensorCalibration(Model):
@@ -40,9 +43,26 @@ class ScaleSensorCalibration(Model):
     def __tarred_value(self, raw_value):
         return raw_value - self.offset
 
-    def calibrate(self, raw_value, weight):
+    def calibrate(self, raw_value, weight) -> bool:
         tarred_value = self.__tarred_value(raw_value)
-        self.factor = weight / tarred_value
+        if abs(tarred_value) < MIN_CALIBRATION_RAW_DELTA:
+            print(
+                f"{self.__class__.__name__}: calibration ignored; no sensor delta detected "
+                f"(delta={tarred_value:.2f}, min={MIN_CALIBRATION_RAW_DELTA})."
+            )
+            return False
+
+        if weight <= 0:
+            print(f"{self.__class__.__name__}: calibration ignored; weight must be > 0.")
+            return False
+
+        factor = weight / tarred_value
+        if not math.isfinite(factor) or factor == 0:
+            print(f"{self.__class__.__name__}: calibration ignored; invalid factor={factor}.")
+            return False
+
+        self.factor = factor
+        return True
 
     def __calibrated_value(self, tarred_value) -> float:
         return tarred_value * self.factor
