@@ -69,9 +69,9 @@ class HX711:
             for _ in range(24):
                 started_high_ns = time.perf_counter_ns()
                 self._clock.write(True)
-                bit = 1 if self._data.read() else 0
                 self._clock.write(False)
                 self._warn_if_clock_high_too_long(started_high_ns)
+                bit = 1 if self._data.read() else 0
                 value = (value << 1) | bit
 
             for _ in range(self._gain_pulses):
