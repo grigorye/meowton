@@ -54,6 +54,14 @@ class HX711:
         self._clock.write(False)
         self._warn_if_clock_high_too_long(started_high_ns)
 
+    def recover(self) -> None:
+        # Force a power-down and power-up cycle after repeated timeouts.
+        with self._global_read_lock:
+            with self._lock:
+                self._clock.write(True)
+                time.sleep(0.00008)
+                self._clock.write(False)
+
     def _wait_ready(self, timeout_seconds: float) -> bool:
         deadline = time.monotonic() + timeout_seconds
         while time.monotonic() < deadline:

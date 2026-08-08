@@ -50,7 +50,9 @@ class Meowton:
             f"cat_sck={settings.CAT_CLOCK_PIN}, "
             f"servo_pwm=pwmchip{settings.SERVO_PWM_CHIP}/pwm{settings.SERVO_PWM_CHANNEL}, "
             f"servo_period_ns={settings.SERVO_PWM_PERIOD_NS}, "
-            f"hx711_timeout_s={settings.HX711_READ_TIMEOUT_S}"
+            f"hx711_timeout_s={settings.HX711_READ_TIMEOUT_S}, "
+            f"hx711_interval_s={settings.HX711_READ_INTERVAL_S}, "
+            f"hx711_recovery_s={settings.HX711_TIMEOUT_RECOVERY_S}"
         )
 
 

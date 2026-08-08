@@ -30,6 +30,8 @@ class SensorReader:
         self.__name = name
         self.__hx711: HX711 | None = None
         self.__read_timeout_s = settings.HX711_READ_TIMEOUT_S
+        self.__read_interval_s = settings.HX711_READ_INTERVAL_S
+        self.__timeout_recovery_s = settings.HX711_TIMEOUT_RECOVERY_S
         self.__last_timeout_log = 0.0
 
         # self.__loop = asyncio.get_event_loop()
@@ -61,6 +63,10 @@ class SensorReader:
                     if now - self.__last_timeout_log >= 5:
                         print(f"SensorReader[{self.__name}]: HX711 timeout waiting for data")
                         self.__last_timeout_log = now
+                    if self.__hx711 is not None and hasattr(self.__hx711, "recover"):
+                        self.__hx711.recover()
+                    if self.__timeout_recovery_s > 0:
+                        time.sleep(self.__timeout_recovery_s)
                     continue
                 except Exception as exc:
                     print(f"SensorReader[{self.__name}]: HX711 read error: {exc}")
@@ -68,6 +74,8 @@ class SensorReader:
                     continue
 
                 self.__loop.call_soon_threadsafe(self.__measurement_callback, raw_value)
+                if self.__read_interval_s > 0:
+                    time.sleep(self.__read_interval_s)
         finally:
             if self.__hx711 is not None:
                 self.__hx711.close()
