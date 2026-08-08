@@ -40,12 +40,19 @@ class HX711:
         self._clock.write(False)
         self._lock = threading.Lock()
         self._warned_clock_high = False
+        self._clock_high_warning_count = 0
 
     def _warn_if_clock_high_too_long(self, started_high_ns: int) -> None:
         high_ns = time.perf_counter_ns() - started_high_ns
         if high_ns >= 60_000 and not self._warned_clock_high:
             print(f"HX711 warning: clock high period reached {high_ns} ns")
             self._warned_clock_high = True
+            self._clock_high_warning_count += 1
+
+    def consume_clock_high_warning_count(self) -> int:
+        count = self._clock_high_warning_count
+        self._clock_high_warning_count = 0
+        return count
 
     def _clock_pulse(self) -> None:
         # Keep the high period as short as possible; >=60 us powers down HX711.
