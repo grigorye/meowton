@@ -13,5 +13,9 @@ ENTRYPOINT /usr/local/bin/python -u main.py
 
 COPY ../requirements.txt /app
 RUN pip install -r /app/requirements.txt
-RUN pip install git+https://github.com/orangepi-xunlong/wiringOP-Python@next
+RUN git clone --depth 1 --branch next --recurse-submodules https://github.com/orangepi-xunlong/wiringOP-Python /tmp/wiringOP-Python \
+	&& cd /tmp/wiringOP-Python \
+	&& python3 generate-bindings.py > bindings.i \
+	&& pip install . \
+	&& rm -rf /tmp/wiringOP-Python
 
