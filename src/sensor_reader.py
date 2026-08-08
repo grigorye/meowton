@@ -32,6 +32,13 @@ class SensorReader:
         self.__read_timeout_s = settings.HX711_READ_TIMEOUT_S
         self.__read_interval_s = settings.HX711_READ_INTERVAL_S
         self.__timeout_recovery_s = settings.HX711_TIMEOUT_RECOVERY_S
+        self.__adaptive_timing_enabled = settings.HX711_ADAPTIVE_TIMING_ENABLED
+        self.__adaptive_trigger_timeouts = max(1, settings.HX711_ADAPTIVE_TRIGGER_TIMEOUTS)
+        self.__adaptive_read_timeout_s = max(self.__read_timeout_s, settings.HX711_ADAPTIVE_READ_TIMEOUT_S)
+        self.__adaptive_read_interval_s = max(self.__read_interval_s, settings.HX711_ADAPTIVE_READ_INTERVAL_S)
+        self.__adaptive_timeout_recovery_s = max(self.__timeout_recovery_s, settings.HX711_ADAPTIVE_TIMEOUT_RECOVERY_S)
+        self.__adaptive_timing_applied = False
+        self.__consecutive_timeouts = 0
         self.__last_timeout_log = 0.0
 
         # self.__loop = asyncio.get_event_loop()
@@ -58,11 +65,13 @@ class SensorReader:
                 try:
                     raw_value = self.__hx711.read_raw(timeout_seconds=self.__read_timeout_s)
                 except HX711TimeoutError:
+                    self.__consecutive_timeouts += 1
                     # Avoid flooding logs if a sensor is disconnected.
                     now = time.monotonic()
                     if now - self.__last_timeout_log >= 5:
                         print(f"SensorReader[{self.__name}]: HX711 timeout waiting for data")
                         self.__last_timeout_log = now
+                    self.__maybe_apply_adaptive_timing("timeout")
                     if self.__hx711 is not None and hasattr(self.__hx711, "recover"):
                         self.__hx711.recover()
                     if self.__timeout_recovery_s > 0:
@@ -73,6 +82,8 @@ class SensorReader:
                     time.sleep(0.1)
                     continue
 
+                self.__consecutive_timeouts = 0
+                self.__maybe_apply_adaptive_timing("clock-high")
                 self.__loop.call_soon_threadsafe(self.__measurement_callback, raw_value)
                 if self.__read_interval_s > 0:
                     time.sleep(self.__read_interval_s)
@@ -80,6 +91,31 @@ class SensorReader:
             if self.__hx711 is not None:
                 self.__hx711.close()
                 self.__hx711 = None
+
+    def __maybe_apply_adaptive_timing(self, reason: str) -> None:
+        if not self.__adaptive_timing_enabled or self.__adaptive_timing_applied:
+            return
+
+        if reason == "timeout":
+            if self.__consecutive_timeouts < self.__adaptive_trigger_timeouts:
+                return
+            self.__apply_adaptive_timing(reason)
+            return
+
+        if reason == "clock-high" and self.__hx711 is not None and hasattr(self.__hx711, "consume_clock_high_warning_count"):
+            warning_count = self.__hx711.consume_clock_high_warning_count()
+            if warning_count > 0:
+                self.__apply_adaptive_timing(f"clock high warning x{warning_count}")
+
+    def __apply_adaptive_timing(self, reason: str) -> None:
+        self.__read_timeout_s = self.__adaptive_read_timeout_s
+        self.__read_interval_s = self.__adaptive_read_interval_s
+        self.__timeout_recovery_s = self.__adaptive_timeout_recovery_s
+        self.__adaptive_timing_applied = True
+        print(
+            f"SensorReader[{self.__name}]: applying adaptive HX711 timing due to {reason} "
+            f"(timeout={self.__read_timeout_s}s interval={self.__read_interval_s}s recovery={self.__timeout_recovery_s}s)"
+        )
 
     def start(self):
         """start reader thread, or simtrhead if data/clk are not specified"""
