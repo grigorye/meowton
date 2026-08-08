@@ -19,7 +19,9 @@ RUN git clone --depth 1 --branch next --recurse-submodules https://github.com/or
 	&& /usr/local/bin/python -c 'import sys, setuptools; print(sys.executable); print(setuptools.__version__)' \
 	&& python3 generate-bindings.py > bindings.i \
 	&& sed -i '/getGpioNum/d;/piGpioLayoutOops/d' bindings.i \
-	&& sed -i 's/SWIG_Python_AppendOutput($result, PyString_FromStringAndSize((char *) $1, result));/SWIG_Python_AppendOutput($result, PyString_FromStringAndSize((char *) $1, result), 0);/' wiringpi.i \
+	&& swig -python -threads -o wiringpi_wrap.c wiringpi.i \
+	&& sed -i 's/SWIG_Python_AppendOutput(resultobj, PyString_FromStringAndSize((char *) arg2, result));/SWIG_Python_AppendOutput(resultobj, PyString_FromStringAndSize((char *) arg2, result), 0);/' wiringpi_wrap.c \
+	&& sed -i "s/sources += \['wiringpi.i'\]/sources += ['wiringpi_wrap.c']/" setup.py \
 	&& /usr/local/bin/python setup.py install \
 	&& rm -rf /tmp/wiringOP-Python
 
