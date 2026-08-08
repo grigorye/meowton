@@ -20,7 +20,21 @@ RUN git clone --depth 1 --branch next --recurse-submodules https://github.com/or
 	&& python3 generate-bindings.py > bindings.i \
 	&& sed -i '/getGpioNum/d;/piGpioLayoutOops/d' bindings.i \
 	&& swig -python -threads -o wiringpi_wrap.c wiringpi.i \
-	&& sed -i 's/SWIG_Python_AppendOutput(resultobj, PyString_FromStringAndSize((char *) arg2, result));/SWIG_Python_AppendOutput(resultobj, PyString_FromStringAndSize((char *) arg2, result), 0);/' wiringpi_wrap.c \
+	&& /usr/local/bin/python - <<'PY' \
+from pathlib import Path \
+import re \
+path = Path('wiringpi_wrap.c') \
+src = path.read_text() \
+patched, count = re.subn( \
+    r"SWIG_Python_AppendOutput\\s*\\(\\s*resultobj\\s*,\\s*PyString_FromStringAndSize\\s*\\(\\s*\\(char \\*\\)\\s*arg2\\s*,\\s*result\\s*\\)\\s*\\)", \
+    "SWIG_Python_AppendOutput(resultobj, PyString_FromStringAndSize((char *) arg2, result), 0)", \
+    src, \
+) \
+if count == 0: \
+    raise SystemExit('Failed to patch SWIG_Python_AppendOutput call in wiringpi_wrap.c') \
+path.write_text(patched) \
+print(f'Patched SWIG_Python_AppendOutput call(s): {count}') \
+PY \
 	&& sed -i "s/sources += \['wiringpi.i'\]/sources += ['wiringpi_wrap.c']/" setup.py \
 	&& /usr/local/bin/python setup.py install \
 	&& rm -rf /tmp/wiringOP-Python
