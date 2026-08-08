@@ -21,6 +21,12 @@ python hardware_smoke/read_hx711_once.py
 python hardware_smoke/read_hx711_burst.py
 python hardware_smoke/pwm_servo_test.py
 
+Container note for Orange Pi board detection:
+- wiringOP inside the container reads /etc/orangepi-release or /etc/armbian-release.
+- If those files are not mounted into the container, startup can fail with:
+	"Oops: Unable to determine board revision ..."
+- Use podman-build.sh (not only podman-restart.sh) after script updates so the container is recreated with updated mount flags.
+
 Example systemd service (minimal template):
 
 Create /etc/systemd/system/meowton.service with:
