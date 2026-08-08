@@ -1,5 +1,4 @@
 import asyncio
-from pprint import pprint
 
 import db
 import settings
@@ -33,9 +32,26 @@ class Meowton:
         self._tasks = []
         self._stopped = False
 
+        self._log_hardware_config()
+
         self.init_food(sim)
         self.init_cat(sim)
         self.status_led = StatusLed()
+
+    def _log_hardware_config(self):
+        print(
+            "Meowton config: "
+            f"backend={settings.hardware_backend}, "
+            f"simulated={settings.is_simulated_hardware}, "
+            f"led_pin={settings.LED_PIN}, "
+            f"food_dout={settings.FOOD_DATA_PIN}, "
+            f"food_sck={settings.FOOD_CLOCK_PIN}, "
+            f"cat_dout={settings.CAT_DATA_PIN}, "
+            f"cat_sck={settings.CAT_CLOCK_PIN}, "
+            f"servo_pwm=pwmchip{settings.SERVO_PWM_CHIP}/pwm{settings.SERVO_PWM_CHANNEL}, "
+            f"servo_period_ns={settings.SERVO_PWM_PERIOD_NS}, "
+            f"hx711_timeout_s={settings.HX711_READ_TIMEOUT_S}"
+        )
 
 
 
