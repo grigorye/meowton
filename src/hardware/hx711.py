@@ -21,6 +21,8 @@ _GAIN_TO_PULSES = {
 
 
 class HX711:
+    _global_read_lock = threading.Lock()
+
     def __init__(
         self,
         dout_pin: int,
@@ -61,26 +63,27 @@ class HX711:
         return False
 
     def read_raw(self, timeout_seconds: float = 0.2) -> int:
-        with self._lock:
-            if not self._wait_ready(timeout_seconds):
-                raise HX711TimeoutError("Timed out waiting for HX711 DOUT to go low")
+        with self._global_read_lock:
+            with self._lock:
+                if not self._wait_ready(timeout_seconds):
+                    raise HX711TimeoutError("Timed out waiting for HX711 DOUT to go low")
 
-            value = 0
-            for _ in range(24):
-                started_high_ns = time.perf_counter_ns()
-                self._clock.write(True)
-                self._clock.write(False)
-                self._warn_if_clock_high_too_long(started_high_ns)
-                bit = 1 if self._data.read() else 0
-                value = (value << 1) | bit
+                value = 0
+                for _ in range(24):
+                    started_high_ns = time.perf_counter_ns()
+                    self._clock.write(True)
+                    self._clock.write(False)
+                    self._warn_if_clock_high_too_long(started_high_ns)
+                    bit = 1 if self._data.read() else 0
+                    value = (value << 1) | bit
 
-            for _ in range(self._gain_pulses):
-                self._clock_pulse()
+                for _ in range(self._gain_pulses):
+                    self._clock_pulse()
 
-            if value & 0x800000:
-                value -= 1 << 24
+                if value & 0x800000:
+                    value -= 1 << 24
 
-            return value
+                return value
 
     def close(self) -> None:
         self._clock.write(False)
