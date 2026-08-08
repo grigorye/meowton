@@ -56,6 +56,34 @@ import sys
 p = Path("wiringpi_wrap.c")
 s = p.read_text()
 
+
+def _print_diagnostics(reason: str) -> None:
+        print("SWIG patch diagnostics:")
+        print(f"  reason: {reason}")
+        print(f"  file: {p}")
+        print(f"  size_bytes: {len(s.encode('utf-8'))}")
+        print(f"  signature_2_arg: {sig2}")
+        print(f"  signature_3_arg: {sig3}")
+
+        append_lines = []
+        resultobj_lines = []
+        for idx, raw in enumerate(s.splitlines(), start=1):
+                if "SWIG_Python_AppendOutput(" in raw:
+                        append_lines.append((idx, raw.strip()))
+                if "resultobj = SWIG_Python_AppendOutput(" in raw:
+                        resultobj_lines.append((idx, raw.strip()))
+
+        print(f"  append_output_line_count: {len(append_lines)}")
+        print(f"  resultobj_append_line_count: {len(resultobj_lines)}")
+
+        print("  sample_append_output_lines:")
+        for idx, raw in append_lines[:8]:
+                print(f"    L{idx}: {raw}")
+
+        print("  sample_resultobj_lines:")
+        for idx, raw in resultobj_lines[:8]:
+                print(f"    L{idx}: {raw}")
+
 sig3 = re.search(
         r"SWIG_Python_AppendOutput\s*\(\s*PyObject\s*\*\s*result\s*,\s*PyObject\s*\*\s*obj\s*,\s*int\s+new_flags\s*\)",
         s,
@@ -65,29 +93,44 @@ sig2 = re.search(
         s,
 ) is not None
 
-pat2 = r"SWIG_Python_AppendOutput\s*\(\s*resultobj\s*,\s*PyString_FromStringAndSize\s*\(\s*\(char \*\)\s*arg2\s*,\s*result\s*\)\s*\)"
-pat3 = r"SWIG_Python_AppendOutput\s*\(\s*resultobj\s*,\s*PyString_FromStringAndSize\s*\(\s*\(char \*\)\s*arg2\s*,\s*result\s*\)\s*,\s*0\s*\)"
-
-n = 0
-s2 = s
-if sig3:
-        s2, n = re.subn(
-                pat2,
-                "SWIG_Python_AppendOutput(resultobj, PyString_FromStringAndSize((char *) arg2, result), 0)",
-                s2,
-        )
-elif sig2:
-        s2, n = re.subn(
-                pat3,
-                "SWIG_Python_AppendOutput(resultobj, PyString_FromStringAndSize((char *) arg2, result))",
-                s2,
-        )
-else:
+if not (sig2 or sig3):
+        _print_diagnostics("signature detection failed")
         sys.exit("Failed to detect SWIG_Python_AppendOutput signature in wiringpi_wrap.c")
+
+s2 = s
+n = 0
+patched_lines = []
+for line in s2.splitlines(keepends=True):
+        if "resultobj = SWIG_Python_AppendOutput(" not in line:
+                patched_lines.append(line)
+                continue
+
+        updated = line
+        if sig2:
+                updated, local_n = re.subn(
+                        r"(resultobj\s*=\s*SWIG_Python_AppendOutput\(\s*resultobj\s*,.*),\s*0\s*\);",
+                        r"\1);",
+                        updated,
+                )
+                n += local_n
+        else:
+                if not re.search(r",\s*0\s*\);", updated):
+                        updated, local_n = re.subn(
+                                r"(resultobj\s*=\s*SWIG_Python_AppendOutput\(\s*resultobj\s*,.*)\);",
+                                r"\1, 0);",
+                                updated,
+                        )
+                        n += local_n
+
+        patched_lines.append(updated)
+
+s2 = "".join(patched_lines)
 
 print(f"Patched SWIG_Python_AppendOutput call(s): {n}")
 if n == 0:
-        sys.exit("Failed to patch SWIG_Python_AppendOutput call in wiringpi_wrap.c")
+        if "resultobj = SWIG_Python_AppendOutput(" in s:
+                _print_diagnostics("found call sites but no replacement applied")
+        print("No SWIG_Python_AppendOutput call needed patching; continuing.")
 
 p.write_text(s2)
 PY
