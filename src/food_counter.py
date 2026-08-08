@@ -1,6 +1,7 @@
 from cat_detector import CatDetector
 from feeder import Feeder
 from scale import Scale
+from typing import Optional
 
 IGNORE_ADDED_ABOVE = 1
 IGNORE_REMOVED_ABOVE = 1
@@ -15,7 +16,7 @@ class FoodCounter:
     # self.ate = 0
     # self.event_ate=Event()
 
-    async def task(self, food_scale: Scale, feeder: Feeder, cat_detector: CatDetector):
+    async def task(self, food_scale: Scale, feeder: Feeder, cat_detector: Optional[CatDetector]):
         prev_weight = 0
         while await food_scale.event_stable.wait():
             weight = food_scale.last_stable_weight
@@ -28,7 +29,8 @@ class FoodCounter:
             elif removed > IGNORE_REMOVED_ABOVE:
                 print(f"FoodCounter: Ignoring big removed weight {removed:0.2f}g")
             else:
-                cat_detector.ate(removed)
+                if cat_detector is not None:
+                    cat_detector.ate(removed)
 
             # self.event_ate.set()
             # self.event_ate.clear()

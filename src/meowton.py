@@ -113,7 +113,8 @@ class Meowton:
         if not settings.DISABLE_CAT_READER:
             tasks.append(asyncio.create_task(self.cat_detector.task(self.cat_scale)))
         tasks.append(asyncio.create_task(self.feeder.task()))
-        tasks.append(asyncio.create_task(self.food_counter.task(self.food_scale, self.feeder, self.cat_detector)))
+        food_counter_detector = None if settings.DISABLE_CAT_READER else self.cat_detector
+        tasks.append(asyncio.create_task(self.food_counter.task(self.food_scale, self.feeder, food_counter_detector)))
         tasks.append(asyncio.create_task(self.food_scheduler.task(self.feeder, self.cat_detector)))
 
         tasks.append(asyncio.create_task(self.status_led.task(self.feeder, self.cat_detector)))
